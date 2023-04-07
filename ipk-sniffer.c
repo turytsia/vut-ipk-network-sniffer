@@ -167,7 +167,7 @@ int main(int argc, char** argv) {
     char filter_exp[] = "ether src 00:11:22:33:44:55";
     bpf_u_int32 mask;
     bpf_u_int32 net;
-    // Open the capture device
+    // Open the capture devicer4
     handle = pcap_open_live("eth0", BUFSIZ, 1, 1000, errbuf);
     if (handle == NULL) {
         err("Unable to open device");
