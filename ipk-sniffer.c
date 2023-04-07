@@ -167,9 +167,27 @@ int main(int argc, char** argv) {
     char filter_exp[] = "ether src 00:11:22:33:44:55";
     bpf_u_int32 mask;
     bpf_u_int32 net;
-    // Open the capture devicer4
-    handle = pcap_open_live("eth0", BUFSIZ, 1, 1000, errbuf);
+
+    // Open the capture device
+    pcap_if_t* alldevsp = NULL;
+
+    char* dev;
+    if (pcap_findalldevs(&alldevsp, errbuf) != 0) {
+        fprintf(stderr, "pcap_findalldevs(): %s\n", errbuf);
+        exit(1);
+    }
+    printf("%p\n", alldevsp);
+    dev = alldevsp->name;
+
+    if (pcap_lookupnet("eth0", &net, &mask, errbuf)) {
+        fprintf(stderr, "Can't get netmask for device\n");
+        exit(2);
+    }
+
+
+    handle = pcap_open_live("eth0", BUFSIZ, 1, 1, errbuf);
     if (handle == NULL) {
+        printf("%s\n", errbuf);
         err("Unable to open device");
     }
 
