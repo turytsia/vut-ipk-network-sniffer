@@ -167,6 +167,7 @@ int main(int argc, char** argv) {
     char filter_exp[] = "ether src 00:11:22:33:44:55";
     bpf_u_int32 mask;
     bpf_u_int32 net;
+
     // Open the capture device
     pcap_if_t* alldevsp = NULL;
 
