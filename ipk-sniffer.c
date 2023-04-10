@@ -2,7 +2,6 @@
  * @file ipk-sniffer.c
  * @author Oleksandr Turytsia (xturyt00)
  * @brief IPK sniffer for capturing various type of packets
- * @version 0.1
  * @date 2023-04-07
  *
  * @copyright see files
@@ -16,6 +15,31 @@
 #include <string.h>
 #include <ctype.h>
 #include <time.h>
+
+ /**
+  * Properly exits program with given message and errcode
+  *
+  * @param message Error message
+  * @param ...
+  */
+void error(const char* message, ...) {
+    va_list args;
+    va_start(args, message);
+    vfprintf(stderr, message, args);
+    va_end(args);
+    exit(EXIT_FAILURE);
+}
+
+#ifdef _WIN32
+
+int main() {
+
+    error("The sniffer is made for UNIX-based systems only!");
+
+    return EXIT_FAILURE;
+}
+
+#else
 
 #include <pcap.h>
 #include <pcap/pcap.h>
@@ -44,7 +68,7 @@
 
 #define USAGE "./ipk-sniffer [-i interface | --interface interface] {-p port} {[--tcp|-t] [--udp|-u] [--arp] [--icmp] } {-n num}\n"
 
- /** packet types that sniffer can watch */
+/** packet types that sniffer can watch */
 enum pckfilter_t {
     TCP, UDP, ICMP4, ICMP6,
     ARP, NDP, IGMP, MLD
@@ -82,7 +106,7 @@ struct prog_t {
 };
 
 /**
- *  prog is a global variable because it needs to be visible for 
+ *  prog is a global variable because it needs to be visible for
  *  SIGINT handler in order to free all the allocated memory
  *  and exit the program.
  */
@@ -96,20 +120,6 @@ struct prog_t prog;
 void dump(struct prog_t* prog) {
     if (prog->alldevsp != NULL) pcap_freealldevs(prog->alldevsp);
     if (prog->handle != NULL) pcap_close(prog->handle);
-}
-
-/**
- * Properly exits program with given message and errcode
- *
- * @param message Error message
- * @param ...
- */
-void error(const char* message, ...) {
-    va_list args;
-    va_start(args, message);
-    vfprintf(stderr, message, args);
-    va_end(args);
-    exit(EXIT_FAILURE);
 }
 
 /**
@@ -158,7 +168,7 @@ void print_network_interfaces() {
 
 /**
  * Sets specific filter
- * 
+ *
  * @param filter struct object
  * @param ftype  represents specific filter
  */
@@ -207,7 +217,7 @@ struct opt_t parse_arguments(int argc, char** argv) {
             if (*optarg == '-')
                 error("Option \'%c\' cannot be used together with other options", optval);
             else
-                strcpy(opt.interface, optarg);
+                strncpy(opt.interface, optarg, strlen(optarg));
             break;
         case HELP:
             printf(USAGE);
@@ -253,14 +263,14 @@ struct opt_t parse_arguments(int argc, char** argv) {
 
 /**
  * converts timeval into RFC3339 time format
- * 
+ *
  * @param dest destination string
  * @param tv source
  */
 void timestamp2rfc3339(char* dest, struct timeval tv) {
     char rfc3339[TIME_LENGTH];
     struct tm* time = localtime(&tv.tv_sec);
-    sprintf(rfc3339, "%04d-%02d-%02dT%02d:%02d:%02d.%03ld%+03d:00",
+    snprintf(rfc3339, sizeof(rfc3339), "%04d-%02d-%02dT%02d:%02d:%02d.%03ld%+03d:00",
              time->tm_year + 1900,
              time->tm_mon + 1,
              time->tm_mday,
@@ -269,30 +279,30 @@ void timestamp2rfc3339(char* dest, struct timeval tv) {
              time->tm_sec,
              tv.tv_usec / 1000,
              (int)(tv.tv_sec % 86400 / 3600));
-    strcpy(dest, rfc3339);
+    strncpy(dest, rfc3339, strlen(rfc3339));
 }
 
 /**
  * Converts bytes into its hexidecimal representation
- * 
+ *
  * @param dest destination sting
- * @param bytes 
+ * @param bytes
  */
 void bytes2hex(char* dest, uint8_t* bytes) {
     char hex[MAC_LENGTH] = { 0 };
     for (int i = 0; i < ETH_ALEN; i++) {
         char hh[4] = { 0 };
-        sprintf(hh, (i < ETH_ALEN - 1 ? "%02x:" : "%02x"), bytes[i]);
+        snprintf(hh, sizeof(hex), (i < ETH_ALEN - 1 ? "%02x:" : "%02x"), bytes[i]);
         strcat(hex, hh);
     }
-    strcpy(dest, hex);
+    strncpy(dest, hex, strlen(hex));
 }
 
 /**
  * Prints packet in format that is specified in documentation
- * 
- * @param packet contents 
- * @param len 
+ *
+ * @param packet contents
+ * @param len
  */
 void print_packet(const u_char* packet, int len) {
     int i, j, cols;
@@ -316,7 +326,7 @@ void print_packet(const u_char* packet, int len) {
 
 /**
  * Takes arguments and converts them into 'expression filter' string
- * 
+ *
  * @param expr destination string
  * @param opt arguments
  */
@@ -326,7 +336,7 @@ void generate_filter_expr(char* expr, struct opt_t* opt) {
     for (int i = 0; i < FILTER_LENGTH; i++) {
         char buff[BUFFER_FILTER_LENGTH] = { 0 };
         if (opt->filter.pck_filter[i]) {
-            
+
             switch (i) {
             case TCP: case UDP:
                 if (opt->port == -1) {
@@ -349,7 +359,7 @@ void generate_filter_expr(char* expr, struct opt_t* opt) {
 
 /**
  * SIGINT handler
- * 
+ *
  */
 void handle_signal() {
     dump(&prog);
@@ -364,6 +374,10 @@ int main(int argc, char** argv) {
     // If [-i|--interface] is not specified, print all possible interfaces
     if (strlen(opt.interface) == 0) {
         print_network_interfaces();
+    }
+
+    if (optind < argc) {
+        error("Option \'%s\' is not valid", argv[optind]);
     }
 
     struct pcap_pkthdr header;                      // packet's header
@@ -381,9 +395,9 @@ int main(int argc, char** argv) {
     bpf_u_int32 net;
 
     prog.alldevsp = get_network_interfaces();       // retrieve all possible interfaces
-    
+
     generate_filter_expr(filter_exp, &opt);         // generate filter expression for pcap filter
-    
+
     signal(SIGINT, handle_signal);                  // register signal handler for SIGINT
 
     if (pcap_lookupnet(opt.interface, &net, &mask, errbuf)) {
@@ -411,10 +425,9 @@ int main(int argc, char** argv) {
 
     /* Capture all the packets (promiscuous mode) */
     while (--opt.npackets >= 0 && (packet = pcap_next(prog.handle, &header)) != NULL) {
-        
+
         struct ether_header* eth_header = (struct ether_header*)packet;     //packet header
 
-        printf("\n");
         timestamp2rfc3339(timestamp, header.ts);
         printf("timestamp: %s\n", timestamp);
         bytes2hex(src_dst_addr, eth_header->ether_dhost);
@@ -490,17 +503,17 @@ int main(int argc, char** argv) {
             /** MLD operates at the network layer (Layer 3) of the OSI model,
              * and does not use any ports like transport layer protocols such as TCP or UDP */
 
-            /** ICMPv6 is a protocol that operates
-             * at the network layer (Layer 3) of the OSI model, just like MLD.
-             * ICMPv6 messages are sent and received using IPv6 protocol, and do not use ports.
-             * ICMPv6 messages are identified by their message type field,
-             * which is part of the ICMPv6 header in the IPv6 packet.*/
+             /** ICMPv6 is a protocol that operates
+              * at the network layer (Layer 3) of the OSI model, just like MLD.
+              * ICMPv6 messages are sent and received using IPv6 protocol, and do not use ports.
+              * ICMPv6 messages are identified by their message type field,
+              * which is part of the ICMPv6 header in the IPv6 packet.*/
 
-            /** NDP is a protocol in IPv6 that is used to
-             * discover and maintain information about other nodes on the same link.
-             * NDP does not use ports, instead they use message type just like ICMPv6 */
+              /** NDP is a protocol in IPv6 that is used to
+               * discover and maintain information about other nodes on the same link.
+               * NDP does not use ports, instead they use message type just like ICMPv6 */
 
-            // NDP & MLD have too many subtypes, I decided not to add them here explicitly
+               // NDP & MLD have too many subtypes, I decided not to add them here explicitly
 
             break;
         }
@@ -509,9 +522,12 @@ int main(int argc, char** argv) {
             break;
         }
         print_packet(packet, header.len);
+        printf("\n");
     }
 
     dump(&prog);    //clean up
 
     return EXIT_SUCCESS;
 }
+
+#endif

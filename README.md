@@ -3,6 +3,9 @@
 The IPK sniffer is a C-based network sniffer which is inspired by [wireshar](https://www.wireshark.org/) sniffer, but it is a lot more simple to use. It can capture and analyze network IPv4, IPv6 and ARP packets of various types on a specified network interface.
 
 ### Installation
+> **Note**
+The program is made for UNIX-based systems only. In other cases the sniffer won't work.
+
 To install the sniffer program, follow these steps:
 1. Download the source code from the repository.
 2. Compile the source code using Makefile:
@@ -111,4 +114,4 @@ Filters were tested in the same way, using various client modes for generating d
 [TCP/IP layers, IPv4 protocols. Header format](https://book.huihoo.com/iptables-tutorial/c171.htm)
 [PCAP tutorial in C. How to create sniffer](https://www.tcpdump.org/pcap.html)
 [IPv6 protocols and how they work](https://www.spiceworks.com/tech/networking/articles/what-is-ipv6/)
-Also was used a lot of official C header files of specific packet headers in order to understand what was inside of it.
+Also was used a lot of official C header files of specific packet headers in order to understand what was inside of it.zW
