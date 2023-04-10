@@ -37,7 +37,7 @@
 #define BUFFER_LENGTH 1024
 #define BUFFER_FILTER_LENGTH 4096
 #define MAC_LENGTH 18
-#define TIME_LENGTH 30
+#define TIME_LENGTH 1024
 #define ETHER_SIZE 14
 
 #define MAX_PORT 65535
@@ -259,13 +259,14 @@ struct opt_t parse_arguments(int argc, char** argv) {
  */
 void timestamp2rfc3339(char* dest, struct timeval tv) {
     char rfc3339[TIME_LENGTH];
-    snprintf(rfc3339, sizeof(rfc3339), "%04d-%02d-%02dT%02d:%02d:%02d.%03ld%+03d:00",
-             localtime(&tv.tv_sec)->tm_year + 1900,
-             localtime(&tv.tv_sec)->tm_mon + 1,
-             localtime(&tv.tv_sec)->tm_mday,
-             localtime(&tv.tv_sec)->tm_hour,
-             localtime(&tv.tv_sec)->tm_min,
-             localtime(&tv.tv_sec)->tm_sec,
+    struct tm* time = localtime(&tv.tv_sec);
+    sprintf(rfc3339, "%04d-%02d-%02dT%02d:%02d:%02d.%03ld%+03d:00",
+             time->tm_year + 1900,
+             time->tm_mon + 1,
+             time->tm_mday,
+             time->tm_hour,
+             time->tm_min,
+             time->tm_sec,
              tv.tv_usec / 1000,
              (int)(tv.tv_sec % 86400 / 3600));
     strcpy(dest, rfc3339);
@@ -510,7 +511,7 @@ int main(int argc, char** argv) {
         print_packet(packet, header.len);
     }
 
-    dump(&prog);    //cleanup
+    dump(&prog);    //clean up
 
     return EXIT_SUCCESS;
 }
