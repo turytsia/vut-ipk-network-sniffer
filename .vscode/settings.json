@@ -2,6 +2,7 @@
     "files.associations": {
         "debug.h": "c",
         "sockets.h": "c",
-        "common.h": "c"
+        "common.h": "c",
+        "stdbool.h": "c"
     }
 }

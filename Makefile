@@ -1,2 +1,11 @@
+PROJ_D=$(shell pwd)
+SRC=ipk-sniffer.c
+OUT=ipk-sniffer
+CC=gcc
+CFLAGS=-Wall -Wextra -Werror -lpcap
+
 run:
-	gcc ipk-sniffer.c -lpcap -o ipk-sniffer
+	$(CC) $(SRC) $(CFLAGS) -o $(OUT)
+
+clean:
+	rm $(OUT)
