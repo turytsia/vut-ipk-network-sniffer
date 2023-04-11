@@ -217,7 +217,7 @@ struct opt_t parse_arguments(int argc, char** argv) {
             if (*optarg == '-')
                 error("Option \'%c\' cannot be used together with other options", optval);
             else
-                strncpy(opt.interface, optarg, strlen(optarg));
+                strcpy(opt.interface, optarg);
             break;
         case HELP:
             printf(USAGE);
@@ -270,7 +270,7 @@ struct opt_t parse_arguments(int argc, char** argv) {
 void timestamp2rfc3339(char* dest, struct timeval tv) {
     char rfc3339[TIME_LENGTH];
     struct tm* time = localtime(&tv.tv_sec);
-    snprintf(rfc3339, sizeof(rfc3339), "%04d-%02d-%02dT%02d:%02d:%02d.%03ld%+03d:00",
+    sprintf(rfc3339, "%04d-%02d-%02dT%02d:%02d:%02d.%03ld%+03d:00",
              time->tm_year + 1900,
              time->tm_mon + 1,
              time->tm_mday,
@@ -279,7 +279,7 @@ void timestamp2rfc3339(char* dest, struct timeval tv) {
              time->tm_sec,
              tv.tv_usec / 1000,
              (int)(tv.tv_sec % 86400 / 3600));
-    strncpy(dest, rfc3339, strlen(rfc3339));
+    strcpy(dest, rfc3339);
 }
 
 /**
@@ -292,10 +292,10 @@ void bytes2hex(char* dest, uint8_t* bytes) {
     char hex[MAC_LENGTH] = { 0 };
     for (int i = 0; i < ETH_ALEN; i++) {
         char hh[4] = { 0 };
-        snprintf(hh, sizeof(hex), (i < ETH_ALEN - 1 ? "%02x:" : "%02x"), bytes[i]);
+        sprintf(hh, (i < ETH_ALEN - 1 ? "%02x:" : "%02x"), bytes[i]);
         strcat(hex, hh);
     }
-    strncpy(dest, hex, strlen(hex));
+    strcpy(dest, hex);
 }
 
 /**
