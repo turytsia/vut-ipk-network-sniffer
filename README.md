@@ -104,14 +104,40 @@ MLD operates at the network layer (Layer 3) of the OSI model, and does not use a
 ICMPv6 is a protocol that operates at the network layer (Layer 3) of the OSI model, just like MLD. ICMPv6 messages are sent and received using IPv6 protocol, and do not use ports. ICMPv6 messages are identified by their message type field, which is part of the ICMPv6 header in the IPv6 packet.
 
 ## Testing
-For testing was created python server and client that were communicating to each other by sending different types of packets (see above). 
+For testing was created separate program [packegen](https://scapy.readthedocs.io/en/latest/layers/tcp.html). It can generate packets needed for IPK sniffer.
 
-IPK sniffer was working in parallel with [wireshark](https://www.wireshark.org/). When the packet was captured, it was compared to the one that is at wireshark.
+The goal was to test wether sniffer was able to filter packets correctly, display correct address information etc.
 
-Filters were tested in the same way, using various client modes for generating dummy packets.
+Additionally I have used [wireshark](https://www.wireshark.org/) in order to compare incoming packets and its contents with IPK sniffer.
+
+#### How to test?
+Packegen is using well-known library [scapy](https://scapy.readthedocs.io/en/latest/usage.html) for managing packets. 
+
+First you will have to install scapy
+```bash
+pip install scapy
+```
+
+Then just run
+```bash
+python3 packegen.py [OPTIONS|--help]
+```
+
+Where **OPTIONS** are
+- --help (prints usage info in console)
+- --host (dest ip address)
+- --port (dest port)
+- --mode (packet type: tcp, udp, icmp4, igmp, icmp6, arp, ndp, mld)
+- --timeout (interval between packets)
+
+Here is the example for TCP packet
+```bash
+python3 packegen.py --host 123.456.7.8 --port 2023 --mode tcp
+```
 
 ## Bibliography
 [TCP/IP layers, IPv4 protocols. Header format](https://book.huihoo.com/iptables-tutorial/c171.htm)
 [PCAP tutorial in C. How to create sniffer](https://www.tcpdump.org/pcap.html)
 [IPv6 protocols and how they work](https://www.spiceworks.com/tech/networking/articles/what-is-ipv6/)
-Also was used a lot of official C header files of specific packet headers in order to understand what was inside of it.zW
+[Scapy. Python library for generating traffic](https://scapy.readthedocs.io/en/latest/layers/tcp.html)
+Also was used a lot of official C header files of specific packet headers in order to understand what was inside of it.
