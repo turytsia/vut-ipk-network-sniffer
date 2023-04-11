@@ -3,7 +3,7 @@
 The IPK sniffer is a C-based network sniffer which is inspired by [wireshar](https://www.wireshark.org/) sniffer, but it is a lot more simple to use. It can capture and analyze network IPv4, IPv6 and ARP packets of various types on a specified network interface.
 
 ### Installation
-> **Note**
+> **Note!**
 The program is made for UNIX-based systems only. In other cases the sniffer won't work.
 
 To install the sniffer program, follow these steps:
@@ -104,13 +104,13 @@ MLD operates at the network layer (Layer 3) of the OSI model, and does not use a
 ICMPv6 is a protocol that operates at the network layer (Layer 3) of the OSI model, just like MLD. ICMPv6 messages are sent and received using IPv6 protocol, and do not use ports. ICMPv6 messages are identified by their message type field, which is part of the ICMPv6 header in the IPv6 packet.
 
 ## Testing
-For testing was created separate program [packegen](https://scapy.readthedocs.io/en/latest/layers/tcp.html). It can generate packets needed for IPK sniffer.
+For testing was created separate program [packegen](https://scapy.readthedocs.io/en/latest/layers/tcp.html) in python3. It can generate packets to test IPK sniffer.
 
-The goal was to test wether sniffer was able to filter packets correctly, display correct address information etc.
+The goal of packegen is to test wether sniffer can filter packets correctly, display address information etc.
 
-Additionally I have used [wireshark](https://www.wireshark.org/) in order to compare incoming packets and its contents with IPK sniffer.
+Additionally I have used [wireshark](https://www.wireshark.org/) in order to compare incoming packets and its content with IPK sniffer.
 
-#### How to test?
+#### How to run test?
 Packegen is using well-known library [scapy](https://scapy.readthedocs.io/en/latest/usage.html) for managing packets. 
 
 First you will have to install scapy
@@ -130,14 +130,17 @@ Where **OPTIONS** are
 - --mode (packet type: tcp, udp, icmp4, igmp, icmp6, arp, ndp, mld)
 - --timeout (interval between packets)
 
+> **Note!**
+Be aware that for IPv4 packets you will need dummy server in order to see this packets flying over your network. The server is not provided with packegen [since it's pretty easy to build](https://realpython.com/python-sockets/).
+
 Here is the example for TCP packet
 ```bash
 python3 packegen.py --host 123.456.7.8 --port 2023 --mode tcp
 ```
 
 ## Bibliography
-[TCP/IP layers, IPv4 protocols. Header format](https://book.huihoo.com/iptables-tutorial/c171.htm)
-[PCAP tutorial in C. How to create sniffer](https://www.tcpdump.org/pcap.html)
-[IPv6 protocols and how they work](https://www.spiceworks.com/tech/networking/articles/what-is-ipv6/)
-[Scapy. Python library for generating traffic](https://scapy.readthedocs.io/en/latest/layers/tcp.html)
-Also was used a lot of official C header files of specific packet headers in order to understand what was inside of it.
+[TCP/IP layers, IPv4 protocols. Header format](https://book.huihoo.com/iptables-tutorial/c171.htm)<br/>
+[PCAP tutorial in C. How to create sniffer](https://www.tcpdump.org/pcap.html)<br/>
+[IPv6 protocols and how they work](https://www.spiceworks.com/tech/networking/articles/what-is-ipv6/)<br/>
+[Scapy. Python library for generating traffic](https://scapy.readthedocs.io/en/latest/layers/tcp.html)<br/>
+Also was used a lot of official C header files of specific packet headers in order to understand what was inside of it.<br/>

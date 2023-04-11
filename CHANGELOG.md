@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## Issues
+- Program is not working if interface is not defined (-i|--interface)
+
+## Commit history
+
 Author: alex <italexx.cz@gmail.com>
 Date:   Mon Apr 10 22:01:25 2023 +0000
 
