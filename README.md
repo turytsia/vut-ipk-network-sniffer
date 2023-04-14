@@ -104,7 +104,7 @@ MLD operates at the network layer (Layer 3) of the OSI model, and does not use a
 ICMPv6 is a protocol that operates at the network layer (Layer 3) of the OSI model, just like MLD. ICMPv6 messages are sent and received using IPv6 protocol, and do not use ports. ICMPv6 messages are identified by their message type field, which is part of the ICMPv6 header in the IPv6 packet.
 
 ## Testing
-For testing was created separate program [packegen](https://scapy.readthedocs.io/en/latest/layers/tcp.html) in python3. It can generate packets to test IPK sniffer.
+For testing was created separate program [packegen](https://scapy.readthedocs.io/en/latest/layers/tcp.html) in python3. It can generate packets to test IPK sniffer. It was built by me.
 
 The goal of packegen is to test wether sniffer can filter packets correctly, display address information etc.
 
@@ -113,7 +113,15 @@ Additionally I have used [wireshark](https://www.wireshark.org/) in order to com
 #### How to run test?
 Packegen is using well-known library [scapy](https://scapy.readthedocs.io/en/latest/usage.html) for managing packets. 
 
-First you will have to install scapy
+First you will have to install scapy. You can install new environment for python
+```bash
+pip install virtualenv
+virtualenv venv
+source bin activate
+pip install scapy -i https://pypi.org/simple/
+```
+or
+
 ```bash
 pip install scapy
 ```

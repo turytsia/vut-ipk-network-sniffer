@@ -5,7 +5,15 @@ Packegen is a python tester for IPK sniffer project. It can generate packets of 
 
 Tester is using well-known library [scapy](https://scapy.readthedocs.io/en/latest/usage.html) for managing packets. 
 
-First you will have to install scapy
+First you will have to install scapy.
+You can install new environment for python
+```bash
+pip install virtualenv
+virtualenv venv
+source bin activate
+pip install scapy -i https://pypi.org/simple/
+```
+or
 ```bash
 pip install scapy
 ```
