@@ -46,13 +46,14 @@ int main() {
 #include <stdint.h>
 #include <netinet/ip.h>
 #include <netinet/if_ether.h>
-#include <netinet/ether.h>
+// #include <netinet/ether.h >
 #include <netinet/tcp.h>
 #include <netinet/udp.h>
 #include <unistd.h>
 #include <netinet/icmp6.h>
 #include <netinet/ip6.h>
 #include <signal.h>
+
 
 #define INTERFACE 'i'
 #define HELP 'h'
@@ -63,6 +64,7 @@ int main() {
 #define MAC_LENGTH 18
 #define TIME_LENGTH 1024
 #define ETHER_SIZE 14
+#define ETH_ALEN        6
 
 #define MAX_PORT 65535
 
@@ -128,7 +130,7 @@ void dump(struct prog_t* prog) {
  * @param str target string
  * @return Returns true if string 'str' matches [0-9]*
  */
-bool isnumber(char* str) {
+bool is_number(char* str) {
     for (int i = 0; str[i]; i++)
         if (!isdigit(str[i])) return false;
     return true;
@@ -223,7 +225,7 @@ struct opt_t parse_arguments(int argc, char** argv) {
             printf(USAGE);
             exit(EXIT_SUCCESS);
         case 'p': case 'n':
-            if (!isnumber(optarg))
+            if (!is_number(optarg))
                 error("Option \'%s\' requires positive integer", optarg);
 
             if (optval == 'p')
@@ -267,18 +269,13 @@ struct opt_t parse_arguments(int argc, char** argv) {
  * @param dest destination string
  * @param tv source
  */
-void timestamp2rfc3339(char* dest, struct timeval tv) {
+void timestamp2rfc3339(char* dest, const struct pcap_pkthdr* header) {
     char rfc3339[TIME_LENGTH];
-    struct tm* time = localtime(&tv.tv_sec);
-    sprintf(rfc3339, "%04d-%02d-%02dT%02d:%02d:%02d.%03ld%+03d:00",
-             time->tm_year + 1900,
-             time->tm_mon + 1,
-             time->tm_mday,
-             time->tm_hour,
-             time->tm_min,
-             time->tm_sec,
-             tv.tv_usec / 1000,
-             (int)(tv.tv_sec % 86400 / 3600));
+    char timestamp[30];
+    struct tm* time = localtime(&header->ts.tv_sec);
+    strftime(timestamp, 30, "%Y-%m-%dT%H:%M:%S", time);
+    sprintf(rfc3339, "%s.%03ld%+03ld:%02ld", timestamp, header->ts.tv_usec / 1000, time->tm_gmtoff / 3600,
+            labs(time->tm_gmtoff % 3600) / 60);
     strcpy(dest, rfc3339);
 }
 
@@ -362,8 +359,117 @@ void generate_filter_expr(char* expr, struct opt_t* opt) {
  *
  */
 void handle_signal() {
+    printf("\nHERE\n");
     dump(&prog);
     exit(EXIT_SUCCESS);
+}
+
+void got_packet(u_char* args, const struct pcap_pkthdr* header,
+                const u_char* packet) {
+    struct ether_header* eth_header = (struct ether_header*)packet;     //packet header
+
+    // struct pcap_pkthdr header;
+    char src_dst_addr[MAC_LENGTH] = { 0 };          // mac buffer
+    char timestamp[TIME_LENGTH] = { 0 };            // timestamp buffer
+    char src_ip[BUFFER_LENGTH] = { 0 };             // source ip buffer
+    char dest_ip[BUFFER_LENGTH] = { 0 };            // destination ip buffer
+
+    timestamp2rfc3339(timestamp, header);
+    printf("timestamp: %s\n", timestamp);
+    bytes2hex(src_dst_addr, eth_header->ether_shost);
+    printf("src MAC: %s\n", src_dst_addr); //TODO check this
+    bytes2hex(src_dst_addr, eth_header->ether_dhost);
+    printf("dst MAC: %s\n", src_dst_addr); //TODO check this
+    printf("frame length: %d bytes\n", header->caplen);
+
+    switch (ntohs(eth_header->ether_type)) {
+    case ETHERTYPE_IP: {
+        /** IPv4 stands for Internet Protocol version 4. It is the fourth version of the
+         * Internet Protocol (IP) and is one of the core protocols of the Internet. IPv4 provides a 32-bit address space */
+        
+
+        struct ip* ip_header = (struct ip*)(packet + ETHER_SIZE);       //ipv4 header
+
+        inet_ntop(AF_INET, &ip_header->ip_src.s_addr, src_ip, BUFFER_LENGTH);
+        inet_ntop(AF_INET, &ip_header->ip_dst.s_addr, dest_ip, BUFFER_LENGTH);
+
+        printf("src IP: %s\ndst IP: %s\n", src_ip, dest_ip);
+
+        if (ip_header->ip_p == IPPROTO_TCP) {
+            /** TCP packets are used for reliable, ordered, and error-checked
+             * delivery of data between applications over an IP network. TCP packets operate
+             * at the Transport layer (Layer 4) of the OSI model */
+
+            struct tcphdr* tcp_header = (struct tcphdr*)(packet + ETHER_SIZE + sizeof(struct ip));      //tcp header
+            printf("src PORT: %d\ndst PORT: %d\n", ntohs(tcp_header->th_sport), ntohs(tcp_header->th_dport));
+        }
+        else if (ip_header->ip_p == IPPROTO_UDP) {
+            /** UDP is a transport protocol used for sending data over IP networks.
+             * It is a connectionless protocol that does not guarantee reliable delivery of data or error checking.
+             * Mostly it is used in cases when amount of data is more required than its quality (such as streaming) */
+            struct udphdr* udp_header = (struct udphdr*)(packet + ETHER_SIZE + sizeof(struct ip));      //udp header
+            printf("src PORT: %d\ndst PORT: %d\n", ntohs(udp_header->uh_sport), ntohs(udp_header->uh_dport));
+        }
+        else if (ip_header->ip_p == IPPROTO_ICMP) {
+            /** ICMP is used for diagnostics and error checking only.
+             * There is no such concept as 'port' for this type of protocol, additionaly
+             * it operates within layer 3, while the ports are at layer 4 of OSI */
+        }
+        else if (ip_header->ip_p == IPPROTO_IGMP) {
+            /** IGMP protocol operates at network layer 3 of the OSI model, while
+             * ports are associated with layer 4 (transport level) */
+        }
+        else {
+            /** Here can be handled any other IPv4 protocol. */
+        }
+        break;
+    }
+    case ETHERTYPE_ARP: {
+        /** ARP is a protocol used to map a network address
+         * to a physical address. It has its limitations - it works only in local enviroment */
+
+        struct ether_arp* arp_header = (struct ether_arp*)(packet + ETHER_SIZE);        //arp header
+
+        inet_ntop(AF_INET, &arp_header->arp_spa, src_ip, BUFFER_LENGTH);
+        inet_ntop(AF_INET, &arp_header->arp_tpa, dest_ip, BUFFER_LENGTH);
+
+        printf("src IP: %s\ndst IP: %s\n", src_ip, dest_ip);
+        break;
+    }
+    case ETHERTYPE_IPV6: {
+        /* IPv6 is the most recent version
+        of the Internet Protocol, designed to eventually replace IPv4. */
+
+        struct ip6_hdr* ip6_header = (struct ip6_hdr*)(packet + ETHER_SIZE);        //ipv6 header
+
+        inet_ntop(AF_INET6, &ip6_header->ip6_src, src_ip, INET6_ADDRSTRLEN);
+        inet_ntop(AF_INET6, &ip6_header->ip6_dst, dest_ip, INET6_ADDRSTRLEN);
+
+        printf("src IP: %s\ndst IP: %s\n", src_ip, dest_ip);
+
+        /** MLD operates at the network layer (Layer 3) of the OSI model,
+         * and does not use any ports like transport layer protocols such as TCP or UDP */
+
+         /** ICMPv6 is a protocol that operates
+          * at the network layer (Layer 3) of the OSI model, just like MLD.
+          * ICMPv6 messages are sent and received using IPv6 protocol, and do not use ports.
+          * ICMPv6 messages are identified by their message type field,
+          * which is part of the ICMPv6 header in the IPv6 packet.*/
+
+          /** NDP is a protocol in IPv6 that is used to
+           * discover and maintain information about other nodes on the same link.
+           * NDP does not use ports, instead they use message type just like ICMPv6 */
+
+           // NDP & MLD have too many subtypes, I decided not to add them here explicitly
+
+        break;
+    }
+    default:
+        /** Any other protocol over the network will be ignored since it is not part of the task. */
+        break;
+    }
+    print_packet(packet, header->caplen);
+    printf("\n");
 }
 
 
@@ -371,22 +477,15 @@ int main(int argc, char** argv) {
 
     struct opt_t opt = parse_arguments(argc, argv); // program options
 
+    if (optind < argc) {
+        error("Option \'%s\' is not valid", argv[optind]);
+    }
+    
     // If [-i|--interface] is not specified, print all possible interfaces
     if (strlen(opt.interface) == 0) {
         print_network_interfaces();
     }
 
-    if (optind < argc) {
-        error("Option \'%s\' is not valid", argv[optind]);
-    }
-
-    struct pcap_pkthdr header;                      // packet's header
-    const u_char* packet;                           // packet contents
-
-    char src_dst_addr[MAC_LENGTH] = { 0 };          // mac buffer
-    char timestamp[TIME_LENGTH] = { 0 };            // timestamp buffer
-    char src_ip[BUFFER_LENGTH] = { 0 };             // source ip buffer
-    char dest_ip[BUFFER_LENGTH] = { 0 };            // destination ip buffer
     char filter_exp[BUFFER_FILTER_LENGTH] = { 0 };  // filter expr buffer
     char errbuf[PCAP_ERRBUF_SIZE] = { 0 };          // error buffer
 
@@ -422,107 +521,12 @@ int main(int argc, char** argv) {
         dump(&prog);
         error("Unable to set filters: %s", pcap_geterr(prog.handle));
     }
-
     /* Capture all the packets (promiscuous mode) */
-    while (--opt.npackets >= 0 && (packet = pcap_next(prog.handle, &header)) != NULL) {
 
-        struct ether_header* eth_header = (struct ether_header*)packet;     //packet header
-
-        timestamp2rfc3339(timestamp, header.ts);
-        printf("timestamp: %s\n", timestamp);
-        bytes2hex(src_dst_addr, eth_header->ether_dhost);
-        printf("src MAC: %s\n", src_dst_addr); //TODO check this
-        bytes2hex(src_dst_addr, eth_header->ether_shost);
-        printf("dst MAC: %s\n", src_dst_addr); //TODO check this
-        printf("frame length: %d bytes\n", header.len);
-
-        switch (ntohs(eth_header->ether_type)) {
-        case ETHERTYPE_IP: {
-            /** IPv4 stands for Internet Protocol version 4. It is the fourth version of the
-             * Internet Protocol (IP) and is one of the core protocols of the Internet. IPv4 provides a 32-bit address space */
-
-            struct ip* ip_header = (struct ip*)(packet + ETHER_SIZE);       //ipv4 header
-
-            inet_ntop(AF_INET, &ip_header->ip_src.s_addr, src_ip, BUFFER_LENGTH);
-            inet_ntop(AF_INET, &ip_header->ip_dst.s_addr, dest_ip, BUFFER_LENGTH);
-
-            printf("src IP: %s\ndst IP: %s\n", src_ip, dest_ip);
-
-            if (ip_header->ip_p == IPPROTO_TCP) {
-                /** TCP packets are used for reliable, ordered, and error-checked
-                 * delivery of data between applications over an IP network. TCP packets operate
-                 * at the Transport layer (Layer 4) of the OSI model */
-
-                struct tcphdr* tcp_header = (struct tcphdr*)(packet + ETHER_SIZE + sizeof(struct ip));      //tcp header
-                printf("src PORT: %d\ndst PORT: %d\n", ntohs(tcp_header->th_sport), ntohs(tcp_header->th_dport));
-            }
-            else if (ip_header->ip_p == IPPROTO_UDP) {
-                /** UDP is a transport protocol used for sending data over IP networks.
-                 * It is a connectionless protocol that does not guarantee reliable delivery of data or error checking.
-                 * Mostly it is used in cases when amount of data is more required than its quality (such as streaming) */
-                struct udphdr* udp_header = (struct udphdr*)(packet + ETHER_SIZE + sizeof(struct ip));      //udp header
-                printf("src PORT: %d\ndst PORT: %d\n", ntohs(udp_header->uh_sport), ntohs(udp_header->uh_dport));
-            }
-            else if (ip_header->ip_p == IPPROTO_ICMP) {
-                /** ICMP is used for diagnostics and error checking only.
-                 * There is no such concept as 'port' for this type of protocol, additionaly
-                 * it operates within layer 3, while the ports are at layer 4 of OSI */
-            }
-            else if (ip_header->ip_p == IPPROTO_IGMP) {
-                /** IGMP protocol operates at network layer 3 of the OSI model, while
-                 * ports are associated with layer 4 (transport level) */
-            }
-            else {
-                /** Here can be handled any other IPv4 protocol. */
-            }
-            break;
-        }
-        case ETHERTYPE_ARP: {
-            /** ARP is a protocol used to map a network address
-             * to a physical address. It has its limitations - it works only in local enviroment */
-
-            struct ether_arp* arp_header = (struct ether_arp*)(packet + ETHER_SIZE);        //arp header
-
-            inet_ntop(AF_INET, &arp_header->arp_spa, src_ip, BUFFER_LENGTH);
-            inet_ntop(AF_INET, &arp_header->arp_tpa, dest_ip, BUFFER_LENGTH);
-
-            printf("src IP: %s\ndst IP: %s\n", src_ip, dest_ip);
-            break;
-        }
-        case ETHERTYPE_IPV6: {
-            /* IPv6 is the most recent version
-            of the Internet Protocol, designed to eventually replace IPv4. */
-
-            struct ip6_hdr* ip6_header = (struct ip6_hdr*)(packet + ETHER_SIZE);        //ipv6 header
-
-            inet_ntop(AF_INET6, &ip6_header->ip6_src, src_ip, INET6_ADDRSTRLEN);
-            inet_ntop(AF_INET6, &ip6_header->ip6_dst, dest_ip, INET6_ADDRSTRLEN);
-
-            printf("src IP: %s\ndst IP: %s\n", src_ip, dest_ip);
-
-            /** MLD operates at the network layer (Layer 3) of the OSI model,
-             * and does not use any ports like transport layer protocols such as TCP or UDP */
-
-             /** ICMPv6 is a protocol that operates
-              * at the network layer (Layer 3) of the OSI model, just like MLD.
-              * ICMPv6 messages are sent and received using IPv6 protocol, and do not use ports.
-              * ICMPv6 messages are identified by their message type field,
-              * which is part of the ICMPv6 header in the IPv6 packet.*/
-
-              /** NDP is a protocol in IPv6 that is used to
-               * discover and maintain information about other nodes on the same link.
-               * NDP does not use ports, instead they use message type just like ICMPv6 */
-
-               // NDP & MLD have too many subtypes, I decided not to add them here explicitly
-
-            break;
-        }
-        default:
-            /** Any other protocol over the network will be ignored since it is not part of the task. */
-            break;
-        }
-        print_packet(packet, header.len);
-        printf("\n");
+    int loop_result = pcap_loop(prog.handle, opt.npackets, got_packet, (u_char*)NULL);
+    if (loop_result < 0) {
+        dump(&prog);
+        error("Pcap loop failed: %s", pcap_geterr(prog.handle));
     }
 
     dump(&prog);    //clean up
